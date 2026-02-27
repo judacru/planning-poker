@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  nickname          String   @unique
+  passwordHash      String
+  firstName         String?
+  lastName          String?
+  avatarUrl         String?
+  verified          Boolean  @default(false)
+  verificationToken String?
+  resetToken        String?
+  createdAt         DateTime @default(now())
+
+  hostedGames       Game[]           @relation("GameHost")
+  participants      GameParticipant[]
+  votes             Vote[]
+
+  @@index([email])
+  @@index([nickname])
+}
+
+model Game {
+  id         String   @id @default(uuid())
+  inviteCode String   @unique
+  name       String?
+  hostId     String
+  createdAt  DateTime @default(now())
+
+  host         User               @relation("GameHost", fields: [hostId], references: [id], onDelete: Cascade)
+  participants GameParticipant[]
+  rounds       Round[]
+
+  @@index([inviteCode])
+  @@index([hostId])
+}
+
+model GameParticipant {
+  id       String   @id @default(uuid())
+  gameId   String
+  userId   String
+  joinedAt DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, userId])
+  @@index([gameId])
+  @@index([userId])
+}
+
+model Round {
+  id           String     @id @default(uuid())
+  gameId       String
+  ticketName   String?
+  ticketNumber Int
+  state        RoundState @default(VOTING)
+  average      Float?
+  revealedAt   DateTime?
+  createdAt    DateTime   @default(now())
+
+  votes Vote[]
+  game  Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, ticketNumber])
+  @@index([gameId])
+}
+
+model Vote {
+  id        String   @id @default(uuid())
+  roundId   String
+  userId    String
+  value     Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  round Round @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, userId])
+  @@index([roundId])
+  @@index([userId])
+}
+
+enum RoundState {
+  WAITING
+  VOTING
+  REVEALED
+  CLOSED
+}

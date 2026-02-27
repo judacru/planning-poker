@@ -1,0 +1,22 @@
+{
+  "name": "planning-poker",
+  "version": "1.0.0",
+  "description": "Real-time Planning Poker application",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "start": "npm start -w backend",
+    "backend:dev": "npm run dev -w backend",
+    "frontend:dev": "npm run dev -w frontend",
+    "backend:build": "npm run build -w backend",
+    "frontend:build": "npm run build -w frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
