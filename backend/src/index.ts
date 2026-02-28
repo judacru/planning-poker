@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Server } from "socket.io";
 import { createServer } from "http";
+import authRoutes from "./modules/auth/routes.js";
 
 dotenv.config();
 
@@ -22,14 +23,12 @@ app.use(cors());
 app.use(express.json());
 
 // Health check
-app.get("/health", (req, res) => {
+app.get("/health", (_req, res) => {
   res.json({ status: "OK" });
 });
 
-// API Routes (to be implemented)
-app.use("/api/auth", (req, res) => {
-  res.json({ message: "Auth routes coming soon" });
-});
+// API Routes
+app.use("/api/auth", authRoutes);
 
 // WebSocket connection
 io.on("connection", (socket) => {
