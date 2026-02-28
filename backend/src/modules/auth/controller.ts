@@ -17,9 +17,6 @@ export class AuthController {
 
       const result = await authService.register(data);
 
-      // TODO: Send verification email in PR-4
-      console.log(`Verification token for ${data.email}: ${result.verificationToken}`);
-
       res.status(201).json({
         message: "User registered successfully. Please check your email for verification.",
         userId: result.userId,
@@ -72,10 +69,7 @@ export class AuthController {
         return;
       }
 
-      const resetToken = await authService.forgotPassword(email);
-
-      // TODO: Send reset email in PR-4
-      console.log(`Reset token for ${email}: ${resetToken}`);
+      await authService.forgotPassword(email);
 
       res.status(200).json({
         message: "If email exists, password reset link has been sent",

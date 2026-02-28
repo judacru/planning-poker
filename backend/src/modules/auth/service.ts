@@ -3,12 +3,15 @@ import crypto from "crypto";
 import { AuthRepository } from "./repository.js";
 import { RegisterDTO, LoginDTO, AuthResponse } from "./dto.js";
 import { generateToken } from "../../utils/jwt.js";
+import { EmailService } from "../email/service.js";
 
 export class AuthService {
   private repository: AuthRepository;
+  private emailService: EmailService;
 
   constructor() {
     this.repository = new AuthRepository();
+    this.emailService = new EmailService();
   }
 
   async register(data: RegisterDTO): Promise<{ userId: string; verificationToken: string }> {
@@ -39,6 +42,18 @@ export class AuthService {
       lastName: data.lastName,
       verificationToken,
     });
+
+    // Send verification email
+    try {
+      await this.emailService.sendVerificationEmail(
+        user.email,
+        user.nickname,
+        verificationToken
+      );
+    } catch (error) {
+      console.error("Failed to send verification email:", error);
+      // Don't throw - user is created, email can be resent
+    }
 
     return {
       userId: user.id,
@@ -108,7 +123,19 @@ export class AuthService {
     const resetToken = crypto.randomBytes(32).toString("hex");
     await this.repository.setResetToken(user.id, resetToken);
 
-    return resetToken;
+    // Send password reset email
+    try {
+      await this.emailService.sendPasswordResetEmail(
+        user.email,
+        user.nickname,
+        resetToken
+      );
+    } catch (error) {
+      console.error("Failed to send password reset email:", error);
+      // Don't throw - token is created, email can be resent
+    }
+
+    return "If email exists, reset link has been sent";
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
