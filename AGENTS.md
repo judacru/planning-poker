@@ -41,6 +41,13 @@ Never generate ugly, outdated, or cluttered UI.
 - **Handle errors gracefully** - Anticipate and manage edge cases
 - **Remove dead code** - Delete unused variables, files, functions immediately
 
+## Available Skills
+
+| Skill | Purpose |
+|------|---------|
+| vercel-react-best-practices | Production-grade React and Next.js best practices |
+| frontend-design | Expert UI/UX design, responsive layouts, and frontend design system best practices |
+
 # Tech Stack
 
 Frontend
