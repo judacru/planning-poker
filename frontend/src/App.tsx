@@ -1,19 +1,32 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Container } from "@mui/material";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useAuth } from "./hooks/useAuth";
+import LoginPage from "./modules/auth/pages/LoginPage";
+import RegisterPage from "./modules/auth/pages/RegisterPage";
+import DashboardPage from "./modules/dashboard/pages/DashboardPage";
+import ProtectedRoute from "./components/common/ProtectedRoute";
 
-function App() {
-  return (
-    <Router>
-      <Container maxWidth="lg">
-        <Routes>
-          <Route path="/" element={<div>Home Page Coming Soon</div>} />
-          <Route path="/login" element={<div>Login Page Coming Soon</div>} />
-          <Route path="/register" element={<div>Register Page Coming Soon</div>} />
-          <Route path="/game/:gameId" element={<div>Game Page Coming Soon</div>} />
-        </Routes>
-      </Container>
-    </Router>
-  );
+function PublicIndexRedirect() {
+  const { isAuthenticated } = useAuth();
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
 }
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<PublicIndexRedirect />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
