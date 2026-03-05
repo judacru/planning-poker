@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import { createServer } from "http";
 import authRoutes from "./modules/auth/routes.js";
 import gameRoutes from "./modules/game/routes.js";
+import { SocketService } from "./modules/socket/service.js";
 
 dotenv.config();
 
@@ -32,19 +33,11 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/games", gameRoutes);
 
-// WebSocket connection
-io.on("connection", (socket) => {
-  console.log(`Client connected: ${socket.id}`);
+// WebSocket service initialization
+const socketService = new SocketService(io);
 
-  socket.on("join_game", (data) => {
-    console.log(`User joined game: ${data.gameId}`);
-    socket.join(`game:${data.gameId}`);
-  });
-
-  socket.on("disconnect", () => {
-    console.log(`Client disconnected: ${socket.id}`);
-  });
-});
+// Make socketService available globally for REST endpoints that need to broadcast
+(global as any).socketService = socketService;
 
 // Start server
 const PORT = process.env.BACKEND_PORT || 3000;
