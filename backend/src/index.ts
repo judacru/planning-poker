@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { Server } from "socket.io";
 import { createServer } from "http";
 import authRoutes from "./modules/auth/routes.js";
+import gameRoutes from "./modules/game/routes.js";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.get("/health", (_req, res) => {
 
 // API Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/games", gameRoutes);
 
 // WebSocket connection
 io.on("connection", (socket) => {
