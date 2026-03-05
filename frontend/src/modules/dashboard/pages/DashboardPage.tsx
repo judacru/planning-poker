@@ -7,19 +7,19 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../hooks/useAuth";
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const handleCreateGame = () => {
-    // TODO: Navigate to game creation flow
-    console.log("Create new game");
+    navigate("/games/create");
   };
 
   const handleJoinGame = () => {
-    // TODO: Navigate to game join flow
-    console.log("Join existing game");
+    navigate("/games/join");
   };
 
   return (

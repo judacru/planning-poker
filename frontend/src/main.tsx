@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
+import { GameProvider } from "./context/GameContext";
 
 const theme = createTheme({
   palette: {
@@ -28,7 +29,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <App />
+        <GameProvider>
+          <App />
+        </GameProvider>
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>
