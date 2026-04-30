@@ -8,7 +8,7 @@
  * - Round management controls
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -30,19 +30,100 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useGame } from '../../../hooks/useGame';
 import { useAuth } from '../../../hooks/useAuth';
+import { useSocket } from '../../../hooks/useSocket';
 import { GameParticipant } from '../types';
 
 export const GameBoardPage: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { currentGame, isLoading, error, getGame } = useGame();
+  const { currentGame, isLoading, error, getGame, leaveGame } = useGame();
+  const socketService = useSocket();
+  const [activeRoundId, setActiveRoundId] = useState<string | null>(null);
+  const [selectedVote, setSelectedVote] = useState<string | null>(null);
 
   useEffect(() => {
     if (gameId) {
-      getGame(gameId);
+      console.log('[UI] Loading game:', gameId);
+      getGame(gameId).catch((err) => console.error('Failed to load game:', err));
     }
-  }, [gameId]);
+  }, [gameId, getGame]);
+
+  // Join game room and listen for real-time updates
+  useEffect(() => {
+    if (!gameId) return;
+
+    console.log('[UI] Joining game room:', gameId);
+    socketService.joinGameRoom(gameId);
+
+    // Setup listeners only once
+    const handleParticipantJoined = (data: any) => {
+      console.log('[UI] Participant joined event:', data);
+      if (data.gameId === gameId) {
+        console.log('[UI] Refreshing game after participant joined');
+        getGame(gameId).catch((err: any) => {
+          const status = err?.response?.status;
+          if (status === 403 || status === 404) {
+            navigate('/games');
+            return;
+          }
+          console.error('[UI] Failed to refresh game after join:', err);
+        });
+      }
+    };
+
+    const handleParticipantLeft = (data: any) => {
+      console.log('[UI] Participant left event:', data);
+      if (data.userId === user?.id) {
+        console.log('[UI] Ignoring self participant:left event');
+        return;
+      }
+      if (data.gameId === gameId) {
+        console.log('[UI] Refreshing game after participant left');
+        getGame(gameId).catch((err: any) => {
+          const status = err?.response?.status;
+          if (status === 403 || status === 404) {
+            navigate('/games');
+            return;
+          }
+          console.error('[UI] Failed to refresh game after leave:', err);
+        });
+      }
+    };
+
+    const handleRoundCreated = (data: any) => {
+      console.log('[UI] Round created event:', data);
+      if (data.gameId === gameId) {
+        setActiveRoundId(data.roundId);
+        setSelectedVote(null);
+      }
+    };
+
+    const handleVoteSubmitted = (data: any) => {
+      console.log('[UI] Vote submitted event:', data);
+    };
+
+    const handleRoundRevealed = (data: any) => {
+      console.log('[UI] Round revealed event:', data);
+    };
+
+    socketService.onParticipantJoined(handleParticipantJoined);
+    socketService.onParticipantLeft(handleParticipantLeft);
+    socketService.onRoundCreated(handleRoundCreated);
+    socketService.onVoteSubmitted(handleVoteSubmitted);
+    socketService.onVotesRevealed(handleRoundRevealed);
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[UI] Cleaning room listeners:', gameId);
+      socketService.offParticipantJoined(handleParticipantJoined);
+      socketService.offParticipantLeft(handleParticipantLeft);
+      socketService.offRoundCreated(handleRoundCreated);
+      socketService.offVoteSubmitted(handleVoteSubmitted);
+      socketService.offVotesRevealed(handleRoundRevealed);
+      socketService.leaveGameRoom();
+    };
+  }, [gameId, getGame, navigate, socketService, user?.id]);
 
   if (!gameId) {
     return (
@@ -93,6 +174,22 @@ export const GameBoardPage: React.FC = () => {
           {isHost && (
             <Chip label="Host" color="primary" variant="outlined" />
           )}
+          {!isHost && (
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={async () => {
+                try {
+                  await leaveGame(gameId || '');
+                  navigate('/games');
+                } catch (err) {
+                  console.error('Failed to leave game:', err);
+                }
+              }}
+            >
+              Leave Game
+            </Button>
+          )}
         </Stack>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -133,15 +230,15 @@ export const GameBoardPage: React.FC = () => {
           Participants
         </Typography>
         <Grid container spacing={2} sx={{ mb: 4 }}>
-          {currentGame.participants.map((participant: GameParticipant) => (
+          {currentGame.participants && currentGame.participants.map((participant: GameParticipant) => (
             <Grid item xs={12} sm={6} md={3} key={participant.id}>
               <Paper
                 sx={{
                   p: 2,
                   textAlign: 'center',
-                  bgcolor: participant.id === user?.id ? 'primary.light' : 'background.paper',
-                  border: participant.id === user?.id ? '2px solid' : '1px solid',
-                  borderColor: participant.id === user?.id ? 'primary.main' : 'divider',
+                  bgcolor: participant.userId === user?.id ? 'primary.light' : 'background.paper',
+                  border: participant.userId === user?.id ? '2px solid' : '1px solid',
+                  borderColor: participant.userId === user?.id ? 'primary.main' : 'divider',
                 }}
               >
                 <Avatar
@@ -184,14 +281,25 @@ export const GameBoardPage: React.FC = () => {
           {['0.5', '1', '2', '3', '5', '8', '13', '21', '40', '>40'].map((value) => (
             <Grid item xs={6} sm={4} md={2} key={value}>
               <Paper
+                onClick={() => {
+                  if (!gameId || !activeRoundId) {
+                    console.log('[UI] Vote blocked: no active round');
+                    return;
+                  }
+
+                  const numericValue = value === '>40' ? 41 : Number(value);
+                  console.log(`[UI] Voting value=${value} numeric=${numericValue} round=${activeRoundId}`);
+                  setSelectedVote(value);
+                  socketService.submitVote(gameId, activeRoundId, numericValue);
+                }}
                 sx={{
                   p: 2,
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  bgcolor: 'background.paper',
+                  bgcolor: selectedVote === value ? 'primary.main' : 'background.paper',
                   border: '2px solid',
-                  borderColor: 'divider',
+                  borderColor: selectedVote === value ? 'primary.main' : 'divider',
                   '&:hover': {
                     bgcolor: 'primary.light',
                     borderColor: 'primary.main',
@@ -199,7 +307,14 @@ export const GameBoardPage: React.FC = () => {
                   },
                 }}
               >
-                <Typography variant="h5" sx={{ fontWeight: 'bold', fontFamily: 'monospace' }}>
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontWeight: 'bold',
+                    fontFamily: 'monospace',
+                    color: selectedVote === value ? 'common.white' : 'text.primary',
+                  }}
+                >
                   {value}
                 </Typography>
               </Paper>
@@ -210,10 +325,29 @@ export const GameBoardPage: React.FC = () => {
         {/* Round Controls */}
         {isHost && (
           <Stack direction="row" spacing={2}>
-            <Button variant="contained" startIcon={<RefreshIcon />}>
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon />}
+              onClick={() => {
+                if (!gameId) return;
+                const ticketName = `Round ${new Date().toLocaleTimeString()}`;
+                console.log('[UI] Creating round:', ticketName);
+                socketService.createRound(gameId, ticketName);
+              }}
+            >
               New Round
             </Button>
-            <Button variant="outlined">
+            <Button
+              variant="outlined"
+              onClick={() => {
+                if (!gameId || !activeRoundId) {
+                  console.log('[UI] Reveal blocked: no active round');
+                  return;
+                }
+                console.log('[UI] Revealing round:', activeRoundId);
+                socketService.revealVotes(gameId, activeRoundId);
+              }}
+            >
               Reveal
             </Button>
           </Stack>

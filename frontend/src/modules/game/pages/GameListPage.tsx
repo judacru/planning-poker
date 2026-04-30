@@ -19,8 +19,6 @@ import {
   Alert,
   Grid,
   CardActions,
-  Avatar,
-  AvatarGroup,
   Chip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -28,16 +26,40 @@ import LoginIcon from '@mui/icons-material/Login';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useGame } from '../../../hooks/useGame';
 import { useAuth } from '../../../hooks/useAuth';
+import { useSocket } from '../../../hooks/useSocket';
 import { GameResponse } from '../types';
 
 export const GameListPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { gamesList, isLoading, error, getGames, deleteGame } = useGame();
+  const { gamesList, isLoading, error, getGames, deleteGame, setCurrentGame } = useGame();
+  const socketService = useSocket();
+
+  // Always reload games when this page mounts
+  useEffect(() => {
+    console.log('🎮 GameListPage mounted - reloading games');
+    getGames();
+    // Clear current game when viewing list
+    setCurrentGame(undefined);
+  }, []);
 
   useEffect(() => {
-    getGames();
-  }, []);
+    const handleParticipantJoined = () => {
+      getGames();
+    };
+
+    const handleParticipantLeft = () => {
+      getGames();
+    };
+
+    socketService.onParticipantJoined(handleParticipantJoined);
+    socketService.onParticipantLeft(handleParticipantLeft);
+
+    return () => {
+      socketService.offParticipantJoined(handleParticipantJoined);
+      socketService.offParticipantLeft(handleParticipantLeft);
+    };
+  }, [getGames, socketService]);
 
   const handleDeleteGame = async (gameId: string) => {
     if (window.confirm('Delete this game? All rounds and votes will be lost.')) {
@@ -129,24 +151,8 @@ export const GameListPage: React.FC = () => {
                     </Box>
 
                     <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                      {game.participants.length} {game.participants.length === 1 ? 'participant' : 'participants'}
+                      {game.participantCount} {game.participantCount === 1 ? 'participant' : 'participants'}
                     </Typography>
-
-                    <AvatarGroup max={5} sx={{ justifyContent: 'flex-start' }}>
-                      {game.participants.map((participant: any) => (
-                        <Avatar
-                          key={participant.id}
-                          sx={{
-                            width: 32,
-                            height: 32,
-                            fontSize: 12,
-                            bgcolor: 'primary.main',
-                          }}
-                        >
-                          {participant.nickname.slice(0, 2).toUpperCase()}
-                        </Avatar>
-                      ))}
-                    </AvatarGroup>
 
                     <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 2 }}>
                       Created {new Date(game.createdAt).toLocaleDateString()}

@@ -10,6 +10,7 @@ import {
   GameBoardPage,
 } from "./modules/game";
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import { useSocket } from "./hooks/useSocket";
 
 function PublicIndexRedirect() {
   const { isAuthenticated } = useAuth();
@@ -17,6 +18,8 @@ function PublicIndexRedirect() {
 }
 
 export default function App() {
+  useSocket();
+
   return (
     <BrowserRouter>
       <Routes>

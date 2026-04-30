@@ -27,6 +27,7 @@ export const CreateGamePage: React.FC = () => {
   const { createGame, isLoading, error, clearError } = useGame();
   const [ticketName, setTicketName] = useState('');
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [gameId, setGameId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const handleCreateGame = async (e: React.FormEvent) => {
@@ -35,7 +36,15 @@ export const CreateGamePage: React.FC = () => {
 
     try {
       const game = await createGame({ ticketName });
+      console.log('Game created:', game);
       setInviteCode(game.inviteCode);
+      setGameId(game.id);
+      // Auto-navigate to game board after 2 seconds
+      setTimeout(() => {
+        if (game.id) {
+          navigate(`/games/${game.id}`);
+        }
+      }, 2000);
     } catch (err) {
       console.error('Error creating game:', err);
     }
@@ -50,7 +59,9 @@ export const CreateGamePage: React.FC = () => {
   };
 
   const handleGoToGame = () => {
-    navigate('/games');
+    if (gameId) {
+      navigate(`/games/${gameId}`);
+    }
   };
 
   if (inviteCode) {

@@ -16,7 +16,10 @@ export function getSocketService(): SocketService {
 export function notifyParticipantJoined(event: ParticipantJoinedEvent) {
   const socketService = getSocketService();
   if (socketService) {
+    console.log(`[API->WS] participant:joined game=${event.gameId} user=${event.userId}`);
     socketService.notifyParticipantJoined(event);
+  } else {
+    console.error("[API->WS] SocketService unavailable for participant:joined");
   }
 }
 
@@ -27,7 +30,10 @@ export function notifyParticipantJoined(event: ParticipantJoinedEvent) {
 export function notifyParticipantLeft(event: ParticipantLeftEvent) {
   const socketService = getSocketService();
   if (socketService) {
+    console.log(`[API->WS] participant:left game=${event.gameId} user=${event.userId}`);
     socketService.notifyParticipantLeft(event);
+  } else {
+    console.error("[API->WS] SocketService unavailable for participant:left");
   }
 }
 

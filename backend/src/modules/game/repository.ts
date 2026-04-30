@@ -136,4 +136,12 @@ export class GameRepository {
 
     return !!participant;
   }
+
+  async removeParticipant(gameId: string, userId: string) {
+    return prisma.gameParticipant.delete({
+      where: {
+        gameId_userId: { gameId, userId },
+      },
+    });
+  }
 }

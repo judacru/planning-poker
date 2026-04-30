@@ -14,6 +14,9 @@ router.post("/create", (req, res) => controller.createGame(req, res));
 // POST /api/games/join - Join a game with invite code
 router.post("/join", (req, res) => controller.joinGame(req, res));
 
+// POST /api/games/:gameId/leave - Leave a game
+router.post("/:gameId/leave", (req, res) => controller.leaveGame(req, res));
+
 // GET /api/games - Get all games for current user
 router.get("/", (req, res) => controller.getActiveGames(req, res));
 

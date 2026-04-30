@@ -85,6 +85,21 @@ export class GameService {
   }
 
   /**
+   * Leave a game (remove as participant)
+   */
+  async leaveGame(gameId: string, userId: string): Promise<void> {
+    const isParticipant = await this.repository.isParticipant(gameId, userId);
+
+    if (!isParticipant) {
+      throw new Error("User is not a participant in this game");
+    }
+
+    console.log(`[Service] Removing user ${userId} from game ${gameId}`);
+    await this.repository.removeParticipant(gameId, userId);
+    console.log(`[Service] User ${userId} successfully removed from game ${gameId}`);
+  }
+
+  /**
    * Check if user is host of game
    */
   async isHost(gameId: string, userId: string): Promise<boolean> {

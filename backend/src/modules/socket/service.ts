@@ -29,34 +29,41 @@ export class SocketService {
 
       // Handle user identification (after auth)
       socket.on("identify", (data: { token: string; gameId?: string }) => {
+        console.log(`[WS-IN] identify socket=${socket.id} hasToken=${!!data?.token}`);
         this.handleIdentify(socket, data);
       });
 
       // Game events
       socket.on("game:join", (data: { gameId: string }) => {
+        console.log(`[WS-IN] game:join socket=${socket.id} game=${data?.gameId}`);
         this.handleGameJoin(socket, data);
       });
 
       socket.on("game:leave", (data: { gameId: string }) => {
+        console.log(`[WS-IN] game:leave socket=${socket.id} game=${data?.gameId}`);
         this.handleGameLeave(socket, data);
       });
 
       // Round events
       socket.on("round:create", (data: { gameId: string; ticketName: string }) => {
+        console.log(`[WS-IN] round:create socket=${socket.id} game=${data?.gameId}`);
         this.handleRoundCreate(socket, data);
       });
 
       socket.on("round:reveal", (data: { gameId: string; roundId: string }) => {
+        console.log(`[WS-IN] round:reveal socket=${socket.id} game=${data?.gameId} round=${data?.roundId}`);
         this.handleRoundReveal(socket, data);
       });
 
       // Vote events
       socket.on("vote:submit", (data: { gameId: string; roundId: string; value: number }) => {
+        console.log(`[WS-IN] vote:submit socket=${socket.id} game=${data?.gameId} round=${data?.roundId} value=${data?.value}`);
         this.handleVoteSubmit(socket, data);
       });
 
       // Disconnect
       socket.on("disconnect", () => {
+        console.log(`[WS-IN] disconnect socket=${socket.id}`);
         this.handleDisconnect(socket);
       });
     });
@@ -250,6 +257,9 @@ export class SocketService {
    * Notify game of participant joined
    */
   notifyParticipantJoined(event: ParticipantJoinedEvent) {
+    const room = `game:${event.gameId}`;
+    const roomSize = this.io.sockets.adapter.rooms.get(room)?.size || 0;
+    console.log(`[WS-OUT] participant:joined room=${room} listeners=${roomSize}`);
     this.io.to(`game:${event.gameId}`).emit("participant:joined", event);
   }
 
@@ -257,6 +267,9 @@ export class SocketService {
    * Notify game of participant left
    */
   notifyParticipantLeft(event: ParticipantLeftEvent) {
+    const room = `game:${event.gameId}`;
+    const roomSize = this.io.sockets.adapter.rooms.get(room)?.size || 0;
+    console.log(`[WS-OUT] participant:left room=${room} listeners=${roomSize}`);
     this.io.to(`game:${event.gameId}`).emit("participant:left", event);
   }
 
