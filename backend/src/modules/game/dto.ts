@@ -16,6 +16,15 @@ export interface GameResponseDTO {
   createdAt: Date;
 }
 
+export interface RoundDTO {
+  id: string;
+  ticketName: string;
+  ticketNumber: number;
+  state: "WAITING" | "VOTING" | "REVEALED" | "CLOSED";
+  average: number | null;
+  createdAt: Date;
+}
+
 export interface GameDetailDTO extends GameResponseDTO {
   participants: {
     id: string;
@@ -23,4 +32,5 @@ export interface GameDetailDTO extends GameResponseDTO {
     nickname: string;
     joinedAt: Date;
   }[];
+  currentRound?: RoundDTO;
 }

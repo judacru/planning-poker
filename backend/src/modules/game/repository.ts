@@ -144,4 +144,49 @@ export class GameRepository {
       },
     });
   }
+
+  // ─── Round ────────────────────────────────────────────────────────────────
+
+  async getLastRoundNumber(gameId: string): Promise<number> {
+    const round = await prisma.round.findFirst({
+      where: { gameId },
+      orderBy: { ticketNumber: "desc" },
+      select: { ticketNumber: true },
+    });
+    return round?.ticketNumber ?? 0;
+  }
+
+  async createRound(gameId: string, ticketName: string, ticketNumber: number) {
+    return prisma.round.create({
+      data: { gameId, ticketName, ticketNumber, state: "VOTING" },
+    });
+  }
+
+  async getRoundById(roundId: string) {
+    return prisma.round.findUnique({
+      where: { id: roundId },
+      include: {
+        votes: {
+          include: { user: { select: { id: true, nickname: true } } },
+        },
+      },
+    });
+  }
+
+  async revealRound(roundId: string, average: number) {
+    return prisma.round.update({
+      where: { id: roundId },
+      data: { state: "REVEALED", average, revealedAt: new Date() },
+    });
+  }
+
+  // ─── Vote ─────────────────────────────────────────────────────────────────
+
+  async upsertVote(roundId: string, userId: string, value: number) {
+    return prisma.vote.upsert({
+      where: { roundId_userId: { roundId, userId } },
+      update: { value },
+      create: { roundId, userId, value },
+    });
+  }
 }

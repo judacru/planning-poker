@@ -6,7 +6,10 @@ import {
   GameDeletedEvent,
   RoundCreatedEvent,
   RoundRevealedEvent,
+  VoteSubmittedEvent,
 } from "./events.js";
+import { GameRepository } from "../game/repository.js";
+import { GameService } from "../game/service.js";
 
 export class SocketService {
   // Map of socket.io connections to user data
@@ -16,7 +19,11 @@ export class SocketService {
   // Map of users connected to each game
   private gameUsers: Map<string, Set<string>> = new Map();
 
+  private gameService: GameService;
+
   constructor(private io: Server) {
+    const repository = new GameRepository();
+    this.gameService = new GameService(repository);
     this.setupConnectionHandlers();
   }
 
@@ -47,18 +54,24 @@ export class SocketService {
       // Round events
       socket.on("round:create", (data: { gameId: string; ticketName: string }) => {
         console.log(`[WS-IN] round:create socket=${socket.id} game=${data?.gameId}`);
-        this.handleRoundCreate(socket, data);
+        this.handleRoundCreate(socket, data).catch((err) =>
+          console.error("[WS] round:create error:", err)
+        );
       });
 
       socket.on("round:reveal", (data: { gameId: string; roundId: string }) => {
         console.log(`[WS-IN] round:reveal socket=${socket.id} game=${data?.gameId} round=${data?.roundId}`);
-        this.handleRoundReveal(socket, data);
+        this.handleRoundReveal(socket, data).catch((err) =>
+          console.error("[WS] round:reveal error:", err)
+        );
       });
 
       // Vote events
       socket.on("vote:submit", (data: { gameId: string; roundId: string; value: number }) => {
         console.log(`[WS-IN] vote:submit socket=${socket.id} game=${data?.gameId} round=${data?.roundId} value=${data?.value}`);
-        this.handleVoteSubmit(socket, data);
+        this.handleVoteSubmit(socket, data).catch((err) =>
+          console.error("[WS] vote:submit error:", err)
+        );
       });
 
       // Disconnect
@@ -162,9 +175,9 @@ export class SocketService {
   }
 
   /**
-   * Handle round creation
+   * Handle round creation — persists to DB, emits real round ID
    */
-  private handleRoundCreate(socket: Socket, data: { gameId: string; ticketName: string }) {
+  private async handleRoundCreate(socket: Socket, data: { gameId: string; ticketName: string }) {
     const userInfo = this.userSockets.get(socket.id);
 
     if (!userInfo) {
@@ -172,22 +185,29 @@ export class SocketService {
       return;
     }
 
-    const event: RoundCreatedEvent = {
-      gameId: data.gameId,
-      roundId: `round-${Date.now()}`, // Temporary - will be replaced with DB ID
-      ticketName: data.ticketName,
-      ticketNumber: 1,
-    };
+    try {
+      const round = await this.gameService.createRound(data.gameId, userInfo.userId, data.ticketName);
 
-    // Broadcast to game room
-    this.io.to(`game:${data.gameId}`).emit("round:created", event);
-    console.log(`[WS] Round created in game ${data.gameId}: ${data.ticketName}`);
+      const event: RoundCreatedEvent = {
+        gameId: data.gameId,
+        roundId: round.id,
+        ticketName: round.ticketName || "",
+        ticketNumber: round.ticketNumber,
+      };
+
+      this.io.to(`game:${data.gameId}`).emit("round:created", event);
+      console.log(`[WS] Round created in game ${data.gameId}: ${round.ticketName} (${round.id})`);
+    } catch (err) {
+      socket.emit("error", {
+        message: err instanceof Error ? err.message : "Failed to create round",
+      });
+    }
   }
 
   /**
-   * Handle round reveal
+   * Handle round reveal — fetches real votes from DB, calculates average
    */
-  private handleRoundReveal(socket: Socket, data: { gameId: string; roundId: string }) {
+  private async handleRoundReveal(socket: Socket, data: { gameId: string; roundId: string }) {
     const userInfo = this.userSockets.get(socket.id);
 
     if (!userInfo) {
@@ -195,22 +215,33 @@ export class SocketService {
       return;
     }
 
-    // In real implementation, this would fetch votes from DB
-    const event: RoundRevealedEvent = {
-      gameId: data.gameId,
-      roundId: data.roundId,
-      votes: [],
-      average: 0,
-    };
+    try {
+      const result = await this.gameService.revealRound(data.gameId, data.roundId, userInfo.userId);
 
-    this.io.to(`game:${data.gameId}`).emit("round:revealed", event);
-    console.log(`[WS] Round revealed in game ${data.gameId}`);
+      const event: RoundRevealedEvent = {
+        gameId: data.gameId,
+        roundId: data.roundId,
+        votes: result.votes.map((v) => ({
+          userId: v.userId,
+          userNickname: v.userNickname,
+          value: v.value as number | null,
+        })),
+        average: result.average,
+      };
+
+      this.io.to(`game:${data.gameId}`).emit("round:revealed", event);
+      console.log(`[WS] Round revealed in game ${data.gameId}: avg=${result.average}`);
+    } catch (err) {
+      socket.emit("error", {
+        message: err instanceof Error ? err.message : "Failed to reveal round",
+      });
+    }
   }
 
   /**
-   * Handle vote submission
+   * Handle vote submission — persists vote to DB, broadcasts without value
    */
-  private handleVoteSubmit(
+  private async handleVoteSubmit(
     socket: Socket,
     data: { gameId: string; roundId: string; value: number }
   ) {
@@ -221,15 +252,23 @@ export class SocketService {
       return;
     }
 
-    // Broadcast to game room (except the value until reveal)
-    this.io.to(`game:${data.gameId}`).emit("vote:submitted", {
-      gameId: data.gameId,
-      roundId: data.roundId,
-      userId: userInfo.userId,
-      userNickname: userInfo.nickname,
-    });
+    try {
+      await this.gameService.submitVote(data.roundId, userInfo.userId, data.value);
 
-    console.log(`[WS] Vote submitted by ${userInfo.nickname}: ${data.value}`);
+      const event: VoteSubmittedEvent = {
+        gameId: data.gameId,
+        roundId: data.roundId,
+        userId: userInfo.userId,
+        userNickname: userInfo.nickname,
+      };
+
+      this.io.to(`game:${data.gameId}`).emit("vote:submitted", event);
+      console.log(`[WS] Vote submitted by ${userInfo.nickname} in round ${data.roundId}: ${data.value}`);
+    } catch (err) {
+      socket.emit("error", {
+        message: err instanceof Error ? err.message : "Failed to submit vote",
+      });
+    }
   }
 
   /**

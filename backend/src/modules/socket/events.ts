@@ -27,6 +27,7 @@ export interface VoteSubmittedEvent {
   gameId: string;
   roundId: string;
   userId: string;
+  userNickname: string;
 }
 
 export interface RoundRevealedEvent {

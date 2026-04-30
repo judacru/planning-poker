@@ -31,9 +31,19 @@ export interface GameResponse {
   createdAt: string;
 }
 
-// Response from get endpoint - includes participants
+export interface RoundResponse {
+  id: string;
+  ticketName: string;
+  ticketNumber: number;
+  state: 'WAITING' | 'VOTING' | 'REVEALED' | 'CLOSED';
+  average: number | null;
+  createdAt: string;
+}
+
+// Response from get endpoint - includes participants and current round
 export interface GameDetail extends GameResponse {
   participants: GameParticipant[];
+  currentRound?: RoundResponse;
 }
 
 export interface GameListResponse {
@@ -41,25 +51,36 @@ export interface GameListResponse {
   total: number;
 }
 
-export interface RoundResponse {
-  id: string;
-  ticketName: string;
-  state: 'WAITING' | 'VOTING' | 'REVEALED' | 'CLOSED';
-  createdAt: string;
+export interface VoteResult {
+  userId: string;
+  nickname: string;
+  value: number | null;
 }
 
-export interface GameBoardState {
+export interface RoundRevealedPayload {
   gameId: string;
-  participants: GameParticipant[];
-  currentRound?: RoundResponse;
-  isHost: boolean;
-  currentUserVote?: number;
+  roundId: string;
+  votes: VoteResult[];
+  average: number;
+}
+
+export interface VoteSubmittedPayload {
+  gameId: string;
+  roundId: string;
+  userId: string;
+  userNickname: string;
+}
+
+export interface RoundCreatedPayload {
+  gameId: string;
+  roundId: string;
+  ticketName: string;
+  ticketNumber: number;
 }
 
 export interface GameContextType {
   gamesList: GameResponse[];
   currentGame?: GameDetail;
-  gameBoard?: GameBoardState;
   isLoading: boolean;
   error?: string;
   createGame: (request: CreateGameRequest) => Promise<GameResponse>;
