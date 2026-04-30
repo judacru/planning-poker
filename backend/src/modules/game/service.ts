@@ -85,6 +85,21 @@ export class GameService {
   }
 
   /**
+   * Leave a game (remove as participant)
+   */
+  async leaveGame(gameId: string, userId: string): Promise<void> {
+    const isParticipant = await this.repository.isParticipant(gameId, userId);
+
+    if (!isParticipant) {
+      throw new Error("User is not a participant in this game");
+    }
+
+    console.log(`[Service] Removing user ${userId} from game ${gameId}`);
+    await this.repository.removeParticipant(gameId, userId);
+    console.log(`[Service] User ${userId} successfully removed from game ${gameId}`);
+  }
+
+  /**
    * Check if user is host of game
    */
   async isHost(gameId: string, userId: string): Promise<boolean> {
@@ -96,6 +111,54 @@ export class GameService {
    */
   async isParticipant(gameId: string, userId: string): Promise<boolean> {
     return this.repository.isParticipant(gameId, userId);
+  }
+
+  // ─── Round ────────────────────────────────────────────────────────────────
+
+  /**
+   * Create a new round (host only)
+   */
+  async createRound(gameId: string, userId: string, ticketName: string) {
+    const isHost = await this.repository.isGameHost(gameId, userId);
+    if (!isHost) throw new Error("Only the host can create rounds");
+
+    const lastNum = await this.repository.getLastRoundNumber(gameId);
+    return this.repository.createRound(gameId, ticketName, lastNum + 1);
+  }
+
+  /**
+   * Submit or change a vote
+   */
+  async submitVote(roundId: string, userId: string, value: number) {
+    return this.repository.upsertVote(roundId, userId, value);
+  }
+
+  /**
+   * Reveal all votes for a round (host only), returns votes + average
+   */
+  async revealRound(gameId: string, roundId: string, userId: string) {
+    const isHost = await this.repository.isGameHost(gameId, userId);
+    if (!isHost) throw new Error("Only the host can reveal votes");
+
+    const round = await this.repository.getRoundById(roundId);
+    if (!round) throw new Error("Round not found");
+
+    const validVotes = round.votes.filter((v) => v.value !== null);
+    const average =
+      validVotes.length > 0
+        ? validVotes.reduce((sum, v) => sum + (v.value ?? 0), 0) / validVotes.length
+        : 0;
+
+    await this.repository.revealRound(roundId, Math.round(average * 100) / 100);
+
+    return {
+      votes: round.votes.map((v) => ({
+        userId: v.userId,
+        userNickname: v.user.nickname,
+        value: v.value,
+      })),
+      average: Math.round(average * 100) / 100,
+    };
   }
 
   /**
@@ -131,6 +194,16 @@ export class GameService {
         nickname: p.user?.nickname || "Unknown",
         joinedAt: p.joinedAt,
       })),
+      currentRound: game.rounds?.[0]
+        ? {
+            id: game.rounds[0].id,
+            ticketName: game.rounds[0].ticketName || "",
+            ticketNumber: game.rounds[0].ticketNumber,
+            state: game.rounds[0].state,
+            average: game.rounds[0].average,
+            createdAt: game.rounds[0].createdAt,
+          }
+        : undefined,
     };
   }
 }

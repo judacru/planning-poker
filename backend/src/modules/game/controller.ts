@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { GameService } from "./service";
 import { GameRepository } from "./repository";
 import { CreateGameDTO, JoinGameDTO } from "./dto";
+import { notifyParticipantJoined, notifyParticipantLeft } from "../socket/utils.js";
 
 export class GameController {
   private service: GameService;
@@ -24,7 +25,7 @@ export class GameController {
       }
 
       const data: CreateGameDTO = {
-        name: req.body.name,
+        name: req.body.ticketName || req.body.name,
       };
 
       const game = await this.service.createGame(userId, data);
@@ -61,6 +62,15 @@ export class GameController {
       }
 
       const game = await this.service.joinGame(userId, data.inviteCode);
+
+      // Notify other users in the game that this user joined
+      const newParticipant = game.participants.find((p) => p.userId === userId);
+      notifyParticipantJoined({
+        gameId: game.id,
+        userId: userId,
+        userNickname: newParticipant?.nickname || "Unknown",
+        participantCount: game.participantCount,
+      });
 
       res.status(200).json({
         success: true,
@@ -125,15 +135,63 @@ export class GameController {
       }
 
       const games = await this.service.getActiveGames(userId);
+      console.log(`[API] GET /api/games - User ${userId} has ${games.length} active games`);
 
       res.status(200).json({
         success: true,
-        data: games,
+        data: {
+          games,
+          total: games.length,
+        },
       });
     } catch (error) {
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : "Failed to get games",
+      });
+    }
+  }
+
+  /**
+   * POST /api/games/:gameId/leave
+   * Leave a game (removes participant)
+   */
+  async leaveGame(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).userId;
+      const { gameId } = req.params;
+
+      if (!userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      console.log(`[API] POST /api/games/${gameId}/leave - User ${userId} leaving game`);
+
+      const game = await this.service.getGame(gameId);
+      const participantCount = game.participants.length - 1;
+
+      await this.service.leaveGame(gameId, userId);
+      console.log(`[API] User ${userId} removed from game ${gameId}. Remaining: ${participantCount}`);
+
+      // Notify other users that this user left
+      const leavingParticipant = game.participants.find((p) => p.userId === userId);
+      notifyParticipantLeft({
+        gameId,
+        userId,
+        userNickname: leavingParticipant?.nickname || "Unknown",
+        participantCount,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Left game successfully",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to leave game";
+      res.status(message.includes("not found") ? 404 : 500).json({
+        success: false,
+        error: message,
       });
     }
   }
