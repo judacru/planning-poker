@@ -26,4 +26,7 @@ router.get("/:gameId", (req, res) => controller.getGame(req, res));
 // DELETE /api/games/:gameId - Delete a game (host only)
 router.delete("/:gameId", (req, res) => controller.deleteGame(req, res));
 
+// GET /api/games/:gameId/rounds - Get round history
+router.get("/:gameId/rounds", (req, res) => controller.getRoundHistory(req, res));
+
 export default router;

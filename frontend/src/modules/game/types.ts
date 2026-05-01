@@ -57,6 +57,17 @@ export interface VoteResult {
   value: number | null;
 }
 
+export interface RoundHistory {
+  id: string;
+  ticketName: string;
+  ticketNumber: number;
+  state: 'WAITING' | 'VOTING' | 'REVEALED' | 'CLOSED';
+  average: number | null;
+  revealedAt: string | null;
+  createdAt: string;
+  votes: VoteResult[];
+}
+
 export interface RoundRevealedPayload {
   gameId: string;
   roundId: string;

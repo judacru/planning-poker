@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 import { GameRepository } from "./repository";
-import { CreateGameDTO, GameResponseDTO, GameDetailDTO } from "./dto";
+import { CreateGameDTO, GameResponseDTO, GameDetailDTO, RoundHistoryDTO } from "./dto";
 
 export class GameService {
   constructor(private repository: GameRepository) {}
@@ -205,5 +205,29 @@ export class GameService {
           }
         : undefined,
     };
+  }
+
+  /**
+   * Get round history for a game (revealed/closed rounds with votes)
+   */
+  async getRoundHistory(gameId: string, userId: string): Promise<RoundHistoryDTO[]> {
+    const isParticipant = await this.repository.isParticipant(gameId, userId);
+    if (!isParticipant) throw new Error("You are not a participant in this game");
+
+    const rounds = await this.repository.getRoundHistory(gameId);
+    return rounds.map((r: any) => ({
+      id: r.id,
+      ticketName: r.ticketName || "",
+      ticketNumber: r.ticketNumber,
+      state: r.state,
+      average: r.average,
+      revealedAt: r.revealedAt,
+      createdAt: r.createdAt,
+      votes: r.votes.map((v: any) => ({
+        userId: v.userId,
+        nickname: v.user?.nickname || "Unknown",
+        value: v.value,
+      })),
+    }));
   }
 }

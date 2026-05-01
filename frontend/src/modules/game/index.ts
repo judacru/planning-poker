@@ -6,6 +6,7 @@ export * from './pages/GameListPage';
 export * from './pages/CreateGamePage';
 export * from './pages/JoinGamePage';
 export * from './pages/GameBoardPage';
+export * from './components/RoundHistoryPanel';
 
 export * from './types';
 export { default as gameService } from './service';

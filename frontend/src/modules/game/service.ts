@@ -12,6 +12,7 @@ import {
   GameResponse,
   GameDetail,
   GameListResponse,
+  RoundHistory,
 } from './types';
 
 class GameService {
@@ -59,6 +60,14 @@ class GameService {
    */
   async deleteGame(gameId: string): Promise<void> {
     await api.delete(`/games/${gameId}`);
+  }
+
+  /**
+   * Get revealed round history for a game
+   */
+  async getRoundHistory(gameId: string): Promise<RoundHistory[]> {
+    const response = await api.get<{ success: boolean; data: { rounds: RoundHistory[] } }>(`/games/${gameId}/rounds`);
+    return response.data.data.rounds;
   }
 }
 
