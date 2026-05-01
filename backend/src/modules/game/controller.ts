@@ -228,4 +228,32 @@ export class GameController {
         });
     }
   }
+
+  /**
+   * GET /api/games/:gameId/rounds
+   * Get revealed round history for a game (requires auth, must be participant)
+   */
+  async getRoundHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).userId;
+      const { gameId } = req.params;
+
+      if (!userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const rounds = await this.service.getRoundHistory(gameId, userId);
+
+      res.status(200).json({
+        success: true,
+        data: { rounds, total: rounds.length },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to get round history";
+      res
+        .status(message.includes("not a participant") ? 403 : 500)
+        .json({ success: false, error: message });
+    }
+  }
 }
