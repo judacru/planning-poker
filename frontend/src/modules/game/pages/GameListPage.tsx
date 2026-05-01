@@ -5,7 +5,7 @@
  * Allows creating new games, joining existing ones, and managing game ownership.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -20,6 +20,12 @@ import {
   Grid,
   CardActions,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions as MuiDialogActions,
+  Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import LoginIcon from '@mui/icons-material/Login';
@@ -32,25 +38,21 @@ import { GameResponse } from '../types';
 export const GameListPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { gamesList, isLoading, error, getGames, deleteGame, setCurrentGame } = useGame();
+  const { gamesList, isLoading, error, getGames, deleteGame, clearError, setCurrentGame } = useGame();
   const socketService = useSocket();
 
-  // Always reload games when this page mounts
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
-    console.log('🎮 GameListPage mounted - reloading games');
     getGames();
-    // Clear current game when viewing list
     setCurrentGame(undefined);
   }, []);
 
   useEffect(() => {
-    const handleParticipantJoined = () => {
-      getGames();
-    };
-
-    const handleParticipantLeft = () => {
-      getGames();
-    };
+    const handleParticipantJoined = () => { getGames(); };
+    const handleParticipantLeft = () => { getGames(); };
 
     socketService.onParticipantJoined(handleParticipantJoined);
     socketService.onParticipantLeft(handleParticipantLeft);
@@ -61,13 +63,17 @@ export const GameListPage: React.FC = () => {
     };
   }, [getGames, socketService]);
 
-  const handleDeleteGame = async (gameId: string) => {
-    if (window.confirm('Delete this game? All rounds and votes will be lost.')) {
-      try {
-        await deleteGame(gameId);
-      } catch (err) {
-        console.error('Error deleting game:', err);
-      }
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDeleteId) return;
+    setIsDeleting(true);
+    try {
+      await deleteGame(confirmDeleteId);
+      setSuccessMessage('Game deleted successfully.');
+    } catch {
+      // error already set in context
+    } finally {
+      setIsDeleting(false);
+      setConfirmDeleteId(null);
     }
   };
 
@@ -106,7 +112,11 @@ export const GameListPage: React.FC = () => {
           </Stack>
         </Stack>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={clearError}>
+            {error}
+          </Alert>
+        )}
 
         {gamesList.length === 0 ? (
           <Card>
@@ -173,7 +183,8 @@ export const GameListPage: React.FC = () => {
                         size="small"
                         color="error"
                         startIcon={<DeleteIcon />}
-                        onClick={() => handleDeleteGame(game.id)}
+                        onClick={() => setConfirmDeleteId(game.id)}
+                        disabled={isDeleting}
                       >
                         Delete
                       </Button>
@@ -185,6 +196,43 @@ export const GameListPage: React.FC = () => {
           </Grid>
         )}
       </Box>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={!!confirmDeleteId}
+        onClose={() => setConfirmDeleteId(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Game?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will permanently delete the game and all its rounds and votes. This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <MuiDialogActions>
+          <Button onClick={() => setConfirmDeleteId(null)} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDeleteConfirmed}
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Deleting…' : 'Delete'}
+          </Button>
+        </MuiDialogActions>
+      </Dialog>
+
+      {/* Success Snackbar */}
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={3000}
+        onClose={() => setSuccessMessage(null)}
+        message={successMessage}
+      />
     </Container>
   );
 };
+
