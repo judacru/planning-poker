@@ -31,6 +31,7 @@ import {
   TextField,
   Badge,
   Divider,
+  Snackbar,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -70,6 +71,9 @@ export const GameBoardPage: React.FC = () => {
 
   // History
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+
+  // Socket error snackbar
+  const [socketError, setSocketError] = useState<string | null>(null);
 
   // New round dialog
   const [newRoundDialogOpen, setNewRoundDialogOpen] = useState(false);
@@ -160,12 +164,20 @@ export const GameBoardPage: React.FC = () => {
       if (data.gameId === gameId) navigate('/games');
     };
 
+    const handleSocketError = (data: any) => {
+      const message: string = data?.message || 'An error occurred';
+      if (message.includes('host') || message.includes('permission') || message.includes('identified')) {
+        setSocketError(message);
+      }
+    };
+
     socketService.onParticipantJoined(handleParticipantJoined);
     socketService.onParticipantLeft(handleParticipantLeft);
     socketService.onRoundCreated(handleRoundCreated);
     socketService.onVoteSubmitted(handleVoteSubmitted);
     socketService.onVotesRevealed(handleRoundRevealed);
     socketService.getSocket()?.on('game:deleted', handleGameDeleted);
+    socketService.getSocket()?.on('error', handleSocketError);
 
     return () => {
       socketService.offParticipantJoined(handleParticipantJoined);
@@ -174,6 +186,7 @@ export const GameBoardPage: React.FC = () => {
       socketService.offVoteSubmitted(handleVoteSubmitted);
       socketService.offVotesRevealed(handleRoundRevealed);
       socketService.getSocket()?.off('game:deleted', handleGameDeleted);
+      socketService.getSocket()?.off('error', handleSocketError);
       socketService.leaveGameRoom();
     };
   }, [gameId, getGame, navigate, socketService, user?.id, activeRoundId, resetRoundState]);
@@ -584,6 +597,18 @@ export const GameBoardPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Permission / socket error Snackbar */}
+      <Snackbar
+        open={!!socketError}
+        autoHideDuration={4000}
+        onClose={() => setSocketError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setSocketError(null)} sx={{ width: '100%' }}>
+          {socketError}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };
