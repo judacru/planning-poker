@@ -46,6 +46,7 @@ import {
   VoteSubmittedPayload,
   RoundRevealedPayload,
 } from '../types';
+import { RoundHistoryPanel } from '../components/RoundHistoryPanel';
 
 const VOTE_OPTIONS = ['0.5', '1', '2', '3', '5', '8', '13', '21', '40', '>40'];
 
@@ -66,6 +67,9 @@ export const GameBoardPage: React.FC = () => {
   const [votedUserIds, setVotedUserIds] = useState<Set<string>>(new Set());
   const [revealedVotes, setRevealedVotes] = useState<Map<string, number | null>>(new Map());
   const [voteAverage, setVoteAverage] = useState<number | null>(null);
+
+  // History
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   // New round dialog
   const [newRoundDialogOpen, setNewRoundDialogOpen] = useState(false);
@@ -148,6 +152,7 @@ export const GameBoardPage: React.FC = () => {
         setRevealedVotes(votesMap);
         setVoteAverage(data.average);
         setIsRevealed(true);
+        setHistoryRefreshKey((k) => k + 1);
       }
     };
 
@@ -540,6 +545,12 @@ export const GameBoardPage: React.FC = () => {
             );
           })}
         </Grid>
+
+        {/* Round History */}
+        <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
+          Round History
+        </Typography>
+        <RoundHistoryPanel gameId={gameId} refreshKey={historyRefreshKey} />
       </Box>
 
       {/* New Round Dialog */}

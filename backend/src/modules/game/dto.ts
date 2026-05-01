@@ -34,3 +34,20 @@ export interface GameDetailDTO extends GameResponseDTO {
   }[];
   currentRound?: RoundDTO;
 }
+
+export interface RoundVoteDTO {
+  userId: string;
+  nickname: string;
+  value: number | null;
+}
+
+export interface RoundHistoryDTO {
+  id: string;
+  ticketName: string;
+  ticketNumber: number;
+  state: "WAITING" | "VOTING" | "REVEALED" | "CLOSED";
+  average: number | null;
+  revealedAt: Date | null;
+  createdAt: Date;
+  votes: RoundVoteDTO[];
+}

@@ -189,4 +189,18 @@ export class GameRepository {
       create: { roundId, userId, value },
     });
   }
+
+  // ─── History ──────────────────────────────────────────────────────────────
+
+  async getRoundHistory(gameId: string) {
+    return prisma.round.findMany({
+      where: { gameId, state: { in: ["REVEALED", "CLOSED"] } },
+      include: {
+        votes: {
+          include: { user: { select: { id: true, nickname: true } } },
+        },
+      },
+      orderBy: { ticketNumber: "asc" },
+    });
+  }
 }
