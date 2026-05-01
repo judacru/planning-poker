@@ -93,6 +93,36 @@ npm run dev -w frontend
 npm run build
 ```
 
+## Production Deployment
+
+### Environment variables
+
+Copy the example files and fill in your values:
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+### Build for production
+
+```bash
+# Generates Prisma client + compiles TypeScript
+npm run build
+
+# Run database migrations
+npm run db:migrate -w backend
+
+# Start backend
+npm start
+```
+
+### Health check
+
+```
+GET /health  →  200 { status: "ok", timestamp: "..." }
+```
+
 ## Documentation
 
 See [PRD](./docs/prd.md) for complete requirements.
